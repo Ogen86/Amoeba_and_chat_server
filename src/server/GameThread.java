@@ -31,7 +31,7 @@ public class GameThread implements Runnable {
 				String msg2 = br2.readLine();
 				pw1.println(msg2);
 
-				if (msg.equals("BREAK") || msg2.equals("BREAK")) {
+				if (msg.equals("B") || msg2.equals("B")) {
 					pw1.println("game terminatied by user command");
 					pw2.println("game terminatied by user command");
 					break;

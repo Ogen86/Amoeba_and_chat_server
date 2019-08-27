@@ -33,7 +33,8 @@ public class ServerWorker extends Thread {
 			e.printStackTrace();
 		}
 	}
-
+	
+	// CMD format: commandToken;1stcommandToken;2ndcommandToken (if needed)
 	private void handleClientSocket() throws IOException, InterruptedException {
 		InputStream inputStream = clientSocket.getInputStream();
 		this.outputStream = clientSocket.getOutputStream();
@@ -55,6 +56,9 @@ public class ServerWorker extends Thread {
 				} else if ("R".equals(cmd)) {
 					String[] tokensMsg = line.split(";", 3);
 					handleRegistry(tokensMsg);
+				} else if ("P".equals(cmd)) {
+					String[] tokensMsg = line.split(";", 3);
+					handlePlayRequest(tokensMsg);
 				} else {
 					String msg = "unknown " + cmd + "\n";
 					outputStream.write(msg.getBytes());
@@ -66,6 +70,44 @@ public class ServerWorker extends Thread {
 	}
 
 	
+	private void handlePlayRequest(String[] tokens) throws IOException {
+		if (tokens.length == 3) {
+			String username = tokens[1];
+			
+			List<ServerWorker> workerList = server.getWorkerList();
+			for (ServerWorker worker : workerList) {
+				if (username.equalsIgnoreCase(worker.getLogin())) {
+					String outMsg = "P" + ";" + this.getLogin();
+					worker.send(outMsg);
+					InputStream response = worker.clientSocket.getInputStream();
+					BufferedReader rpReader = new BufferedReader(new InputStreamReader(response));
+					
+					if (rpReader.readLine() != null) {
+						if (rpReader.equals("A")) {
+							
+							Socket clientSocket1 = this.clientSocket;
+							Socket clientSocket2 = worker.clientSocket;
+							
+							GameThread gameThread = new GameThread(clientSocket1, clientSocket2);
+							
+							gameThread.run();
+							
+							
+						} else if (rpReader.equals("D")) {
+							String msg = username + " declined to play";
+							outputStream.write(msg.getBytes());
+						} else {
+							String msg = "error: unrecognised command \n";
+							outputStream.write(msg.getBytes());
+							}
+					}
+				}
+			}
+		}
+	}
+
+	
+
 	// format: "msg" "username" body...
 	private void handleMessage(String[] tokens) throws IOException {
 		String sendTo = tokens[1];
