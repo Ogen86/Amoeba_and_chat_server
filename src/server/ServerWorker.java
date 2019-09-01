@@ -54,8 +54,7 @@ public class ServerWorker extends Thread {
 					String[] tokensMsg = line.split(";", 3);
 					handleMessage(tokensMsg);
 				} else if ("R".equals(cmd)) {
-					String[] tokensMsg = line.split(";", 3);
-					handleRegistry(tokensMsg);
+					handleRegistry(tokens);
 				} else if ("P".equals(cmd)) {
 					String[] tokensMsg = line.split(";", 3);
 					handlePlayRequest(tokensMsg);
@@ -146,8 +145,8 @@ public class ServerWorker extends Thread {
 			String username = tokens[1];
 			String password = tokens[2];
 		
-		Scanner sc = new Scanner(new File("registry.txt"));
-		PrintWriter pw = new PrintWriter(new File("registry.txt"));
+		Scanner sc = new Scanner(new File("src/server/registry.txt"));
+		PrintWriter pw = new PrintWriter(new File("src/server/registry.txt"));
 		
 			while (sc.hasNextLine()) {
 				String regLine = sc.nextLine();
@@ -181,7 +180,7 @@ public class ServerWorker extends Thread {
 			String username = tokens[1];
 			String password = tokens[2];
 			
-			Scanner sc = new Scanner(new File("registry.txt"));
+			Scanner sc = new Scanner(new File("src/server/registry.txt"));
 			while (sc.hasNextLine()) {
 				String regLine = sc.nextLine();
 				String[] regToken = regLine.split(";", 3);
@@ -189,7 +188,7 @@ public class ServerWorker extends Thread {
 				String regPass = regToken[1];
 
 			if (username.equals(regName) && password.equals(regPass)) {
-				String msg = "ok login\n";
+				String msg = "O;" + username;
 				outputStream.write(msg.getBytes());
 				this.username = username;
 				System.out.println("User logged in succesfully: " + username);
@@ -214,7 +213,7 @@ public class ServerWorker extends Thread {
 					}
 				}
 			} else {
-				String msg = "error login (wrong password and/or username \n";
+				String msg = "N;error login (wrong password and/or username \n";
 				outputStream.write(msg.getBytes());
 				System.err.println("Login failed for " + username);
 			}
