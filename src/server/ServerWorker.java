@@ -4,14 +4,25 @@ package server;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class ServerWorker extends Thread {
 
@@ -19,7 +30,13 @@ public class ServerWorker extends Thread {
 	private final Server server;
 	private String username = null;
 	private OutputStream outputStream;
-	private static File registry = new File("src/server/registry.txt");
+	private static File registryFile = new File("src/server/registry.json");
+	static final String sqlUsername = "Ogen86";
+	static final String sqlPassword = "Ogenke86";
+	static final String DB_URL =
+			"jdbc:postgresql://localhost:5432/Registry";
+	private static int regResult = 0;
+	
 	
 	public ServerWorker(Server server, Socket clientSocket) {
 		this.server = server;
@@ -148,52 +165,92 @@ public class ServerWorker extends Thread {
 	}
 	
 	private void handleRegistry(String[] tokens) throws IOException {
-		if (tokens.length == 3) {
+			if (tokens.length == 3) {
 			String username = tokens[1];
 			String password = tokens[2];
-		
-		Scanner sc = new Scanner(registry);
-		PrintWriter pw = new PrintWriter(registry);
-		
-			while (sc.hasNextLine()) {
-				String regLine = sc.nextLine();
-				String[] regToken = regLine.split(";", 2);
-				String regName = regToken[0];
-				
 			
-		
-			if (!username.equals(regName)){
-				pw.println(username + ";" + password + ";" + "0");
+			searchRegistry(username);
+			
+			if (regResult == 2) {
+				String msg = "N;error: username occupied \n";
+				outputStream.write(msg.getBytes());
+				System.err.println("registry failed for " + username);
+			} else if (regResult == 1) {
+				fillRegistry(username,password);
 				String msg = "O;Successful registry\n";
 				outputStream.write(msg.getBytes());
 				this.username = username;
 				System.out.println("User registered in succesfully: " + username);
-
-				
-			} else {
-				String msg = "N;error: username occupied \n";
-				outputStream.write(msg.getBytes());
-				System.err.println("registry failed for " + username);
 				}
 			}
+		}
+
+	private void fillRegistry(String username, String password) {
+		
+		try {
+			Connection con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
+			Statement stmt = con.createStatement();
 			
+			String command = "insert into Registry values('" + username + "', '" + password + "', '" + 0  + "', '" + "');";
+			stmt.execute(command);
+			
+				
+			con.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 	}
+	
+	static void searchRegistry(String username) {
+		regResult = 0;
+		Connection con;
+		try {
+			con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
+			Statement stmt = con.createStatement();
+			ResultSet results = stmt.executeQuery("select "+ username + " from Registry;");
+			if (results.wasNull()) {
+				regResult = 1;
+			} else {
+				regResult = 2;
+			}
+			con.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 
+	}
+	// the base setting for result is 0, if there isn't a find 1, and if there is a find 2; 
+	static void searchRegistry(String username, String password) {
+		regResult = 0;
+		Connection con;
+		try {
+			con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
+			Statement stmt = con.createStatement();
+			ResultSet results = stmt.executeQuery("select "+ username + ", " + password + " from Registry;");
+			if (results.wasNull()) {
+				regResult = 1;
+			} else {
+				regResult = 2;
+			}
+			con.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+	}
 
 	private void handleLogin(OutputStream outputStream, String[] tokens) throws IOException {
 		if (tokens.length == 3) {
 			String username = tokens[1];
 			String password = tokens[2];
 			
-			Scanner sc = new Scanner(registry);
-			while (sc.hasNextLine()) {
-				String regLine = sc.nextLine();
-				String[] regToken = regLine.split(";", 3);
-				String regName = regToken[0];
-				String regPass = regToken[1];
-
-			if (username.equals(regName) && password.equals(regPass)) {
+			searchRegistry(username, password);
+			
+			if (regResult == 2) {
+				String msg = "N;error login (wrong password and/or username \n";
+				outputStream.write(msg.getBytes());
+				System.err.println("Login failed for " + username);
+			} else if (regResult == 1) {
 				String msg = "O;" + username;
 				outputStream.write(msg.getBytes());
 				this.username = username;
@@ -218,15 +275,12 @@ public class ServerWorker extends Thread {
 						worker.send(onlineMsg);
 					}
 				}
-			} else {
-				String msg = "N;error login (wrong password and/or username \n";
-				outputStream.write(msg.getBytes());
-				System.err.println("Login failed for " + username);
 			}
 			
-		}
+			
 		}
 	}
+	
 
 	private void send(String msg) throws IOException {
 		if (username != null) {
