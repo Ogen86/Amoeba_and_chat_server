@@ -5,6 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class GameThread implements Runnable {
 
@@ -30,8 +34,16 @@ public class GameThread implements Runnable {
 				pw2.println(msg);
 				String msg2 = br2.readLine();
 				pw1.println(msg2);
-
-				if (msg.equals("B") || msg2.equals("B")) {
+				
+				if (msg.equals("W;/*"))
+					pw1.println("O;You won!");
+					pw2.println("O;You lost!");
+					
+				if ( msg2.equals("W;/*"))
+					pw1.println("O;You lost!");
+					pw2.println("O;You won!");
+					
+				if (msg.equals("B;/*") || msg2.equals("B;/*")) {
 					pw1.println("game terminatied by user command");
 					pw2.println("game terminatied by user command");
 					break;

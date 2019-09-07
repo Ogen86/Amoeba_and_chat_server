@@ -30,14 +30,11 @@ public class ServerWorker extends Thread {
 	private final Server server;
 	private String username = null;
 	private OutputStream outputStream;
-	private static File registryFile = new File("src/server/registry.json");
-	static final String sqlUsername = "Ogen86";
+	static final String sqlUsername = "postgres";
 	static final String sqlPassword = "Ogenke86";
-	static final String DB_URL =
-			"jdbc:postgresql://localhost:5432/Registry";
+	static final String DB_URL = "jdbc:postgresql://localhost:5432/JavaSQL";
 	private static int regResult = 0;
-	
-	
+
 	public ServerWorker(Server server, Socket clientSocket) {
 		this.server = server;
 		this.clientSocket = clientSocket;
@@ -53,7 +50,7 @@ public class ServerWorker extends Thread {
 			e.printStackTrace();
 		}
 	}
-	
+
 	// CMD format: commandToken;1stcommandToken;2ndcommandToken (if needed)
 	private void handleClientSocket() throws IOException, InterruptedException {
 		InputStream inputStream = clientSocket.getInputStream();
@@ -86,51 +83,46 @@ public class ServerWorker extends Thread {
 		clientSocket.close();
 	}
 
-	
 	private void handlePlayRequest(String[] tokens) throws IOException {
 		List<ServerWorker> workerList = server.getWorkerList();
 		if (tokens.length == 3) {
 			String username = tokens[1];
-			
-			
+
 			for (ServerWorker worker : workerList) {
 				if (username.equalsIgnoreCase(worker.getLogin())) {
 					String outMsg = "P" + ";" + this.getLogin();
 					worker.send(outMsg);
 					InputStream response = worker.clientSocket.getInputStream();
 					BufferedReader rpReader = new BufferedReader(new InputStreamReader(response));
-					
+
 					if (rpReader.readLine() != null) {
-						
+
 						if (rpReader.equals("A;" + worker.getLogin())) {
-							
+
 							String msg = "O;The game started";
 							outputStream.write(msg.getBytes());
 							OutputStream player2 = worker.outputStream;
 							player2.write(msg.getBytes());
-							
+
 							Socket clientSocket1 = this.clientSocket;
 							Socket clientSocket2 = worker.clientSocket;
-							
+
 							GameThread gameThread = new GameThread(clientSocket1, clientSocket2);
-							
+
 							gameThread.run();
-							
-							
+
 						} else if (rpReader.equals("D;" + worker.getLogin())) {
 							String msg = "N;" + username + "; declined to play";
 							outputStream.write(msg.getBytes());
 						} else {
 							String msg = "N;error: unrecognised command \n";
 							outputStream.write(msg.getBytes());
-							}
+						}
 					}
 				}
 			}
 		}
 	}
-
-	
 
 	// format: "msg" "username" body...
 	private void handleMessage(String[] tokens) throws IOException {
@@ -163,51 +155,51 @@ public class ServerWorker extends Thread {
 	public String getLogin() {
 		return username;
 	}
-	
+
 	private void handleRegistry(String[] tokens) throws IOException {
-			if (tokens.length == 3) {
+		if (tokens.length == 3) {
 			String username = tokens[1];
 			String password = tokens[2];
-			
+
 			searchRegistry(username);
-			
+
 			if (regResult == 2) {
 				String msg = "N;error: username occupied \n";
 				outputStream.write(msg.getBytes());
 				System.err.println("registry failed for " + username);
 			} else if (regResult == 1) {
-				fillRegistry(username,password);
+				fillRegistry(username, password);
 				String msg = "O;Successful registry\n";
 				outputStream.write(msg.getBytes());
 				this.username = username;
 				System.out.println("User registered in succesfully: " + username);
-				}
 			}
 		}
+	}
 
 	private void fillRegistry(String username, String password) {
-		
+
 		try {
 			Connection con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
 			Statement stmt = con.createStatement();
-			
-			String command = "insert into Registry values('" + username + "', '" + password + "', '" + 0  + "', '" + "');";
+
+			String command = "insert into Registry values('" + username + "', '" + password + "', '" + 0 + "', '"
+					+ "');";
 			stmt.execute(command);
-			
-				
+
 			con.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	static void searchRegistry(String username) {
 		regResult = 0;
 		Connection con;
 		try {
 			con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
 			Statement stmt = con.createStatement();
-			ResultSet results = stmt.executeQuery("select "+ username + " from Registry;");
+			ResultSet results = stmt.executeQuery("select " + username + " from Registry;");
 			if (results.wasNull()) {
 				regResult = 1;
 			} else {
@@ -219,14 +211,16 @@ public class ServerWorker extends Thread {
 		}
 
 	}
-	// the base setting for result is 0, if there isn't a find 1, and if there is a find 2; 
+
+	// the base setting for result is 0, if there isn't a find 1, and if there is a
+	// find 2;
 	static void searchRegistry(String username, String password) {
 		regResult = 0;
 		Connection con;
 		try {
 			con = DriverManager.getConnection(DB_URL, sqlUsername, sqlPassword);
 			Statement stmt = con.createStatement();
-			ResultSet results = stmt.executeQuery("select "+ username + ", " + password + " from Registry;");
+			ResultSet results = stmt.executeQuery("select " + username + ", " + password + " from Registry;");
 			if (results.wasNull()) {
 				regResult = 1;
 			} else {
@@ -243,9 +237,9 @@ public class ServerWorker extends Thread {
 		if (tokens.length == 3) {
 			String username = tokens[1];
 			String password = tokens[2];
-			
+
 			searchRegistry(username, password);
-			
+
 			if (regResult == 2) {
 				String msg = "N;error login (wrong password and/or username \n";
 				outputStream.write(msg.getBytes());
@@ -276,11 +270,9 @@ public class ServerWorker extends Thread {
 					}
 				}
 			}
-			
-			
+
 		}
 	}
-	
 
 	private void send(String msg) throws IOException {
 		if (username != null) {
