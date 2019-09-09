@@ -5,10 +5,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 public class GameThread implements Runnable {
 
@@ -39,6 +35,7 @@ public class GameThread implements Runnable {
 					pw1.println("O;You won!");
 					pw2.println("O;You lost!");
 					
+					
 				if ( msg2.equals("W;/*"))
 					pw1.println("O;You lost!");
 					pw2.println("O;You won!");
@@ -58,5 +55,6 @@ public class GameThread implements Runnable {
 			e.printStackTrace();
 		}
 	}
+
 
 }
