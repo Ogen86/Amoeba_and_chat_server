@@ -1,6 +1,5 @@
 package server;
 
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -31,7 +30,6 @@ public class ServerWorker extends Thread {
 	private final Server server;
 	private String username = null;
 	private OutputStream outputStream;
-	private OutputStreamWriter outputWriter;
 	private OutputStreamWriter regStream;
 	private final String registry = "src/server/registry.txt";
 
@@ -56,31 +54,31 @@ public class ServerWorker extends Thread {
 		InputStream inputStream = clientSocket.getInputStream();
 		this.outputStream = clientSocket.getOutputStream();
 		try {
-		BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-		String line;
-		while ((line = reader.readLine()) != null) {
-			String[] tokens = line.split(";", 3);
-			if (tokens != null && tokens.length > 0) {
-				String cmd = tokens[0];
-				if ("logoff".equals(cmd) || "quit".equals(cmd)) {
-					handleLogoff();
-					break;
-				} else if ("J".equals(cmd)) {
-					handleLogin(outputStream, tokens);
-				} else if ("C".equals(cmd)) {
-					handleMessage(tokens);
-				} else if ("R".equals(cmd)) {
-					handleRegistry(tokens);
-				} else if ("P".equals(cmd)) {
-					handlePlayRequest(tokens);
-				} else {
-					String msg = "unknown " + cmd + "\n";
-					send(msg);
+			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String[] tokens = line.split(";", 3);
+				if (tokens != null && tokens.length > 0) {
+					String cmd = tokens[0];
+					if ("logoff".equals(cmd) || "quit".equals(cmd)) {
+						handleLogoff();
+						break;
+					} else if ("J".equals(cmd)) {
+						handleLogin(outputStream, tokens);
+					} else if ("C".equals(cmd)) {
+						handleMessage(tokens);
+					} else if ("R".equals(cmd)) {
+						handleRegistry(tokens);
+					} else if ("P".equals(cmd)) {
+						handlePlayRequest(tokens);
+					} else {
+						String msg = "unknown " + cmd + "\n";
+						send(msg);
+					}
 				}
 			}
-		}
 
-		clientSocket.close();
+			clientSocket.close();
 		} catch (SocketException e) {
 			handleLogoff();
 		}
@@ -101,14 +99,15 @@ public class ServerWorker extends Thread {
 					if (rpReader.readLine() != null) {
 
 						if (rpReader.equals("A;" + worker.getLogin())) {
-
-							String msg = "O;The game started";
-							outputStream.write(msg.getBytes());
-							OutputStream player2 = worker.outputStream;
-							player2.write(msg.getBytes());
-
+							
 							Socket clientSocket1 = this.clientSocket;
 							Socket clientSocket2 = worker.clientSocket;
+							
+							String msg = "O;The game started";
+							send(msg);
+
+							send(msg, clientSocket1);
+							send(msg, clientSocket2);
 
 							GameThread gameThread = new GameThread(clientSocket1, clientSocket2);
 
@@ -135,7 +134,7 @@ public class ServerWorker extends Thread {
 		List<ServerWorker> workerList = server.getWorkerList();
 		for (ServerWorker worker : workerList) {
 			if (sendTo.equalsIgnoreCase(worker.getLogin())) {
-				String outMsg = "msg " + username + " " + body + "\n";
+				String outMsg = "C;" + username + ";" + body + "\n";
 				worker.send(outMsg);
 			}
 		}
@@ -163,45 +162,39 @@ public class ServerWorker extends Thread {
 		if (tokens.length == 3) {
 			String username = tokens[1];
 			String password = tokens[2];
-			
-			
-			
+
 			try {
 				regStream = new OutputStreamWriter(new FileOutputStream(registry, true));
 				Scanner sc = new Scanner(new File(registry));
-				PrintWriter pw = new PrintWriter(regStream,true);
-				
+				PrintWriter pw = new PrintWriter(regStream, true);
+
 				while (sc.hasNextLine()) {
 					String regLine = sc.nextLine();
 					String[] regToken = regLine.split(";", 2);
 					String regName = regToken[0];
-					
-				
-			
-				if (!username.equals(regName)){
-					pw.println(username + ";" + password + ";" + "0");
-					String msg = "Successful registry\n";
-					send(msg);
-					this.username = username;
-					System.out.println("User registered in succesfully: " + username);
 
-					
-				} else {
-					String msg = "error: username occupied \n";
-					send(msg);
-					System.err.println("registry failed for " + username);
+					if (!username.equals(regName)) {
+						pw.println(username + ";" + password + ";" + "0");
+						String msg = "Successful registry\n";
+						send(msg);
+						this.username = username;
+						System.out.println("User registered in succesfully: " + username);
+
+					}
+					if (username.equals(regName)) {
+						String msg = "error: username occupied \n";
+						send(msg);
+						System.err.println("registry failed for " + username);
 					}
 				}
 				sc.close();
 				pw.close();
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
-			} 
+			}
 		}
-				
-			
+
 	}
-	
 
 	private void handleLogin(OutputStream outputStream, String[] tokens) throws IOException {
 		if (tokens.length == 3) {
@@ -210,45 +203,45 @@ public class ServerWorker extends Thread {
 
 			try {
 				Scanner sc = new Scanner(new File(registry));
-			
-			while (sc.hasNextLine()) {
-				String regLine = sc.nextLine();
-				String[] regToken = regLine.split(";", 3);
-				String regName = regToken[0];
-				String regPass = regToken[1];
 
-			if (username.equals(regName) && password.equals(regPass)) {
-				String msg = "O;" + username;
-				send(msg);
-				this.username = username;
-				System.out.println("User logged in succesfully: " + username);
+				while (sc.hasNextLine()) {
+					String regLine = sc.nextLine();
+					String[] regToken = regLine.split(";", 3);
+					String regName = regToken[0];
+					String regPass = regToken[1];
 
-				List<ServerWorker> workerList = server.getWorkerList();
+					if (username.equals(regName) && password.equals(regPass)) {
+						String msg = "O;" + username;
+						send(msg);
+						this.username = username;
+						System.out.println("User logged in succesfully: " + username);
 
-				// send current user all other online logins
-				for (ServerWorker worker : workerList) {
-					if (worker.getLogin() != null) {
-						if (!username.equals(worker.getLogin())) {
-							String msg2 = worker.getLogin() + "online " + "\n";
-							send(msg2);
+						List<ServerWorker> workerList = server.getWorkerList();
+
+						// send current user all other online logins
+						for (ServerWorker worker : workerList) {
+							if (worker.getLogin() != null) {
+								if (!username.equals(worker.getLogin())) {
+									String msg2 = "L;" + worker.getLogin() + "online " + "\n";
+									send(msg2);
+								}
+							}
 						}
-					}
-				}
 
-				// send other online users current user's status
-				String onlineMsg = "C;" + username + "online " + "\n";
-				for (ServerWorker worker : workerList) {
-					if (!username.equals(worker.getLogin())) {
-						worker.send(onlineMsg);
+						// send other online users current user's status
+						String onlineMsg = "C;" + username + "online " + "\n";
+						for (ServerWorker worker : workerList) {
+							if (!username.equals(worker.getLogin())) {
+								worker.send(onlineMsg);
+							}
+						}
+					} if (!username.equals(regName) && !password.equals(regPass)){
+						String msg = "N;error login (wrong password and/or username \n";
+						send(msg);
+						System.err.println("Login failed for " + username);
 					}
+					// sc.close();
 				}
-			} else {
-				String msg = "N;error login (wrong password and/or username \n";
-				send(msg);
-				System.err.println("Login failed for " + username);
-			}
-			//sc.close();
-		}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -256,14 +249,30 @@ public class ServerWorker extends Thread {
 	}
 
 	private void send(String msg) {
-		BufferedWriter bw = new BufferedWriter(outputWriter);
-		if (username != null) {
-			try {
+		BufferedWriter bw;
+		try {
+			bw = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+
+			if (username != null) {
 				bw.write(msg);
 				bw.flush();
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void send(String msg, Socket socket) {
+		BufferedWriter bw;
+		try {
+			bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+
+			if (username != null) {
+				bw.write(msg);
+				bw.flush();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 }
