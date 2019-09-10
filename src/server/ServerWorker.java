@@ -2,6 +2,7 @@ package server;
 
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -24,15 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 public class ServerWorker extends Thread {
 
 	private final Socket clientSocket;
 	private final Server server;
 	private String username = null;
 	private OutputStream outputStream;
+	private OutputStreamWriter outputWriter;
 	private OutputStreamWriter regStream;
 	private final String registry = "src/server/registry.txt";
 
@@ -76,7 +75,7 @@ public class ServerWorker extends Thread {
 					handlePlayRequest(tokens);
 				} else {
 					String msg = "unknown " + cmd + "\n";
-					outputStream.write(msg.getBytes());
+					send(msg);
 				}
 			}
 		}
@@ -117,10 +116,10 @@ public class ServerWorker extends Thread {
 
 						} else if (rpReader.equals("D;" + worker.getLogin())) {
 							String msg = "N;" + username + "; declined to play";
-							outputStream.write(msg.getBytes());
+							send(msg);
 						} else {
 							String msg = "N;error: unrecognised command \n";
-							outputStream.write(msg.getBytes());
+							send(msg);
 						}
 					}
 				}
@@ -182,14 +181,14 @@ public class ServerWorker extends Thread {
 				if (!username.equals(regName)){
 					pw.println(username + ";" + password + ";" + "0");
 					String msg = "Successful registry\n";
-					outputStream.write(msg.getBytes());
+					send(msg);
 					this.username = username;
 					System.out.println("User registered in succesfully: " + username);
 
 					
 				} else {
 					String msg = "error: username occupied \n";
-					outputStream.write(msg.getBytes());
+					send(msg);
 					System.err.println("registry failed for " + username);
 					}
 				}
@@ -197,9 +196,7 @@ public class ServerWorker extends Thread {
 				pw.close();
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			} 
 		}
 				
 			
@@ -222,7 +219,7 @@ public class ServerWorker extends Thread {
 
 			if (username.equals(regName) && password.equals(regPass)) {
 				String msg = "O;" + username;
-				outputStream.write(msg.getBytes());
+				send(msg);
 				this.username = username;
 				System.out.println("User logged in succesfully: " + username);
 
@@ -247,7 +244,7 @@ public class ServerWorker extends Thread {
 				}
 			} else {
 				String msg = "N;error login (wrong password and/or username \n";
-				outputStream.write(msg.getBytes());
+				send(msg);
 				System.err.println("Login failed for " + username);
 			}
 			//sc.close();
@@ -258,9 +255,15 @@ public class ServerWorker extends Thread {
 		}
 	}
 
-	private void send(String msg) throws IOException {
+	private void send(String msg) {
+		BufferedWriter bw = new BufferedWriter(outputWriter);
 		if (username != null) {
-			outputStream.write(msg.getBytes());
+			try {
+				bw.write(msg);
+				bw.flush();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 }
